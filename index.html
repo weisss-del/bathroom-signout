@@ -18,10 +18,22 @@
   header {
     padding: 16px;
     background: #2a2a2a;
-    text-align: center;
     font-size: 20px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
+  header .home {
+    color: #4a9eff;
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 12px;
+    border: 1px solid #4a9eff;
+    border-radius: 6px;
+    font-weight: 400;
+  }
+  header .spacer { width: 60px; }
   main {
     flex: 1;
     display: grid;
@@ -108,6 +120,34 @@
     padding: 8px 0 16px;
   }
   .counter.full { color: #ff5a5a; }
+  .manual-bar {
+    display: flex;
+    gap: 8px;
+    padding: 6px 16px 14px;
+  }
+  .manual-bar input {
+    flex: 1;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 16px;
+    outline: none;
+  }
+  .manual-bar input::placeholder { color: #666; }
+  .manual-bar input:focus { border-color: #4a9eff; }
+  .manual-bar button {
+    background: #4a9eff;
+    color: #fff;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .manual-bar button:hover { background: #3a8eef; }
   #setup-warning {
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -123,19 +163,22 @@
 <body>
 
 <!-- ============================================================ -->
-<!--   STEP 1: Paste your Apps Script Web App URL below            -->
-<!--   (the URL ending in /exec from Deploy → Manage deployments)  -->
+<!--   STEP 1: Paste your Bathroom Apps Script /exec URL below     -->
 <!-- ============================================================ -->
 <script>
   const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyYhQr6pj9TDT7b3TxLyj0XRyI-loAQQ6-VrwGPjPuLXZkJeNjd7n1dMz05Lty7l7BQ/exec';
 </script>
 
-<header>Bathroom Sign-Out — Scan ID barcode</header>
+<header>
+  <span class="spacer"></span>
+  <span>Bathroom Sign-Out</span>
+  <a href="index.html" class="home">← Home</a>
+</header>
 <main>
   <div class="scanner-box">
     <div id="reader"></div>
     <div id="message"></div>
-    <div class="hint">Hold ID 6–10 inches from camera</div>
+    <div class="hint">Scan ID barcode or type number below</div>
   </div>
   <div class="panel">
     <h2>Currently Out</h2>
@@ -143,6 +186,10 @@
     <ul id="out-list"><li class="empty">No one is out</li></ul>
   </div>
 </main>
+<div class="manual-bar">
+  <input type="text" id="manual-id" placeholder="Enter student ID and press Enter…" autocomplete="off" autofocus />
+  <button onclick="submitManual()">Submit</button>
+</div>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
@@ -151,11 +198,10 @@
   let lastScanTime = 0;
   let processing = false;
 
-  // Show warning if backend URL not configured
   if (BACKEND_URL.indexOf('PASTE_YOUR') === 0) {
     const w = document.createElement('div');
     w.id = 'setup-warning';
-    w.textContent = 'Setup needed: edit this file and paste your Apps Script URL into BACKEND_URL';
+    w.textContent = 'Setup needed: edit bathroom.html and paste your Bathroom Apps Script URL into BACKEND_URL';
     document.body.appendChild(w);
   }
 
@@ -186,18 +232,16 @@
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c =>
-      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])
-    );
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  // Call the Apps Script backend. Uses GET with query params (avoids CORS preflight).
   function callBackend(params) {
     const url = BACKEND_URL + '?' + new URLSearchParams(params).toString();
     return fetch(url, { method: 'GET', redirect: 'follow' })
       .then(r => r.json());
   }
 
-  function onScan(decodedText) {
+  function processScan(decodedText) {
     const now = Date.now();
     if (processing) return;
     if (decodedText === lastScan && now - lastScanTime < 3000) return;
@@ -210,25 +254,48 @@
         processing = false;
         showMessage(res.message, res.status);
         updateOutList(res.currentlyOut);
+        // Keep input focused for next scan/entry
+        document.getElementById('manual-id').focus();
       })
       .catch(err => {
         processing = false;
         showMessage('Network error — try again', 'error');
+        document.getElementById('manual-id').focus();
         console.error(err);
       });
   }
+
+  function submitManual() {
+    const input = document.getElementById('manual-id');
+    const id = input.value.trim();
+    if (!id) return;
+    input.value = '';
+    processScan(id);
+  }
+
+  document.getElementById('manual-id').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitManual();
+    }
+  });
+
+  // Re-focus the input if user clicks anywhere else (so USB scanner always works)
+  document.addEventListener('click', e => {
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A') {
+      document.getElementById('manual-id').focus();
+    }
+  });
 
   function refreshStatus() {
     callBackend({ action: 'status' })
       .then(res => updateOutList(res.currentlyOut))
       .catch(err => console.error('Status refresh failed:', err));
   }
-
-  // Refresh "currently out" every 30s
   setInterval(refreshStatus, 30000);
   refreshStatus();
 
-  // Start scanner
+  // Webcam scanner (still active as backup)
   const scanner = new Html5Qrcode("reader");
   Html5Qrcode.getCameras().then(cameras => {
     if (!cameras.length) {
@@ -239,18 +306,12 @@
       cameras[0].id,
       {
         fps: 10,
-        qrbox: { width: 300, height: 150 },
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.QR_CODE
-        ]
+        qrbox: { width: 300, height: 150 }
       },
-      onScan,
+      processScan,
       () => {}
     ).catch(err => showMessage('Camera error: ' + err, 'error'));
-  }).catch(err => showMessage('Camera permission denied', 'error'));
+  }).catch(() => showMessage('Camera permission denied', 'error'));
 </script>
 </body>
 </html>
