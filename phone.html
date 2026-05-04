@@ -68,7 +68,17 @@
     margin-bottom: 12px;
   }
   .search-input:focus { border-color: #5bc8ac; }
-  .name-list, .in-list {
+  .right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+  .panel.half {
+    flex: 1;
+    min-height: 0;
+  }
+  .name-list, .in-list, .leaderboard {
     flex: 1;
     overflow-y: auto;
     list-style: none;
@@ -87,7 +97,7 @@
   .name-list .empty:hover { background: #1e2e40; }
 
   .in-list li {
-    padding: 12px 16px;
+    padding: 10px 14px;
     background: #1e3a3a;
     border-radius: 8px;
     margin: 4px;
@@ -95,37 +105,42 @@
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
+    gap: 8px;
   }
   .in-list li:hover { background: #2a4a4a; }
-  .in-list .name { font-weight: 600; font-size: 15px; }
-  .in-list .time { color: #5bc8ac; font-size: 13px; }
+  .in-list .name { font-weight: 600; font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .in-list .time { color: #5bc8ac; font-size: 12px; }
+  .in-list .pts-earning { color: #ffd166; font-size: 13px; font-weight: 700; }
   .in-list .empty { color: #334; text-align: center; padding: 20px; cursor: default; }
   .in-list .empty:hover { background: transparent; }
 
   .leaderboard li {
-    padding: 10px 14px;
+    padding: 8px 12px;
     background: #1e2e40;
     border-radius: 6px;
-    margin: 4px;
+    margin: 3px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 14px;
+    font-size: 13px;
+    gap: 8px;
   }
-  .leaderboard .rank { color: #5bc8ac; font-weight: 700; min-width: 30px; }
+  .leaderboard .rank { color: #5bc8ac; font-weight: 700; min-width: 26px; }
+  .leaderboard .lb-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .leaderboard .pts { color: #ffd166; font-weight: 600; }
+  .leaderboard .empty { color: #334; text-align: center; padding: 16px; }
 
   .counter {
-    font-size: 36px;
+    font-size: 28px;
     font-weight: 700;
     color: #5bc8ac;
     text-align: center;
-    padding: 4px 0 12px;
+    padding: 4px 0 8px;
     line-height: 1;
   }
   .counter .label {
     display: block;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 400;
     color: #445;
     text-transform: uppercase;
@@ -137,9 +152,9 @@
     font-size: 12px;
     color: #445;
     text-align: center;
-    padding-bottom: 12px;
+    padding-bottom: 8px;
     border-bottom: 1px solid #1e2e40;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   /* Modal */
@@ -214,6 +229,39 @@
   }
   .manual-link:hover { color: #667; }
 
+  .signout-all-btn {
+    background: #d4621a;
+    color: #fff;
+    border: none;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .signout-all-btn:hover { background: #b85518; }
+  .signout-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .pin-input {
+    width: 100%;
+    background: #0f1923;
+    border: 2px solid #2a3a50;
+    color: #fff;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 28px;
+    letter-spacing: 8px;
+    text-align: center;
+    outline: none;
+    margin: 12px 0;
+    font-family: monospace;
+  }
+  .pin-input:focus { border-color: #5bc8ac; }
+
   #setup-warning {
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -232,7 +280,7 @@
 <!--   Paste your Phone Log Apps Script /exec URL below            -->
 <!-- ============================================================ -->
 <script>
-  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwlkpQ-QQWTamjCu-e6i0t0rXECi--vfldmeRrrj-0ejQLB0YiAvukUMD9VGlPfWxi38A/exec';
+  const BACKEND_URL = 'PASTE_YOUR_PHONE_LOG_APPS_SCRIPT_URL_HERE';
 </script>
 
 <header>
@@ -253,13 +301,24 @@
     <div class="manual-link" onclick="manualEntry()">Don't see your name? Enter ID manually</div>
   </div>
 
-  <div class="panel">
-    <h2 id="right-title">Phones Stored — Tap to Retrieve</h2>
-    <div class="counter" id="counter">0<span class="label">in holder</span></div>
-    <div class="period-info" id="period-info"></div>
-    <ul class="in-list" id="in-list">
-      <li class="empty">No phones stored</li>
-    </ul>
+  <div class="right-column">
+    <div class="panel half">
+      <h2 id="right-title">Phones Stored — Tap to Retrieve</h2>
+      <div class="counter" id="counter">0<span class="label">in holder</span></div>
+      <div class="period-info" id="period-info"></div>
+      <ul class="in-list" id="in-list">
+        <li class="empty">No phones stored</li>
+      </ul>
+      <button class="signout-all-btn" id="signout-all-btn" onclick="openSignOutAllModal()" style="display:none;">
+        🔔 End of Period — Sign Out All
+      </button>
+    </div>
+    <div class="panel half">
+      <h2>🏆 Top Points</h2>
+      <ul class="leaderboard" id="leaderboard-list">
+        <li class="empty">Loading…</li>
+      </ul>
+    </div>
   </div>
 </main>
 
@@ -275,12 +334,22 @@
   </div>
 </div>
 
+<div class="modal-bg" id="pin-modal">
+  <div class="modal">
+    <div class="who">Teacher Only</div>
+    <div class="name" style="font-size:24px;">Sign Out All Phones</div>
+    <div class="action">Enter teacher PIN to confirm</div>
+    <input type="password" class="pin-input" id="pin-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" />
+    <div class="modal-buttons">
+      <button class="btn-cancel" onclick="closePinModal()">Cancel</button>
+      <button class="btn-primary retrieve" id="pin-confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
-  const THURSDAY_MINUTES = 35;
-  const DEFAULT_MINUTES  = 45;
-
   let roster = [];
   let currentlyIn = [];
   let leaderboardCache = null;
@@ -294,14 +363,41 @@
     document.body.appendChild(w);
   }
 
-  // Day label + period info
+  // Day label + period info — pulled from server schedule
   (function() {
     const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     const d = new Date();
-    const mins = d.getDay() === 4 ? THURSDAY_MINUTES : DEFAULT_MINUTES;
     document.getElementById('day-label').textContent = days[d.getDay()];
-    document.getElementById('period-info').textContent = 'Full period = ' + mins + ' min = 1.00 pt';
+    updatePeriodInfo();
   })();
+
+  function updatePeriodInfo() {
+    const now = new Date();
+    const periods = SCHEDULE[now.getDay()];
+    const info = document.getElementById('period-info');
+    if (!periods) {
+      info.textContent = 'No school today';
+      return;
+    }
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const cur = periods.find(p => mins >= p.s && mins < p.e);
+    if (cur) {
+      const len = cur.e - cur.s;
+      info.textContent = 'Now: ' + cur.name + ' • ' + len + ' min full period';
+    } else {
+      const next = periods.find(p => p.s > mins);
+      if (next) {
+        const m = next.s % 60, h = Math.floor(next.s / 60);
+        const ampm = h >= 12 ? 'pm' : 'am';
+        const h12 = ((h + 11) % 12) + 1;
+        info.textContent = 'Between periods • Next: ' + next.name + ' at ' + h12 + ':' + (m < 10 ? '0' + m : m) + ampm;
+      } else {
+        info.textContent = 'School day complete';
+      }
+    }
+  }
+  // Refresh period info every minute
+  setInterval(updatePeriodInfo, 60000);
 
   function callBackend(params) {
     const url = BACKEND_URL + '?' + new URLSearchParams(params).toString();
@@ -352,37 +448,63 @@
     ).join('') + (truncated ? '<li class="empty">…keep typing to narrow results</li>' : '');
   }
 
+  // Schedule (kept in sync with backend)
+  const SCHEDULE = {
+    1: [
+      { name: 'P1',  s: 480,  e: 535 },
+      { name: 'P2',  s: 540,  e: 590 },
+      { name: 'P6/7',s: 710,  e: 765 },
+      { name: 'P9',  s: 800,  e: 850 },
+      { name: 'P10', s: 855,  e: 905 }
+    ],
+    4: [
+      { name: 'P1',  s: 535,  e: 575 },
+      { name: 'P2',  s: 580,  e: 620 },
+      { name: 'P6/7',s: 730,  e: 785 },
+      { name: 'P9',  s: 820,  e: 860 },
+      { name: 'P10', s: 865,  e: 905 }
+    ]
+  };
+  SCHEDULE[2] = SCHEDULE[1]; SCHEDULE[3] = SCHEDULE[1]; SCHEDULE[5] = SCHEDULE[1];
+
+  /** Calculate projected points right now if a kid was signed out */
+  function projectedPoints(storedPeriodName, minutesStored) {
+    if (!storedPeriodName || storedPeriodName === 'OFF') return 0;
+    // Find period by name in today's schedule
+    const periods = SCHEDULE[new Date().getDay()];
+    if (!periods) return 0;
+    const p = periods.find(x => x.name === storedPeriodName);
+    if (!p) return 0;
+    const periodLen = p.e - p.s;
+    const stored = Math.min(minutesStored, periodLen);
+    return Math.round((stored / periodLen) * 100) / 100;
+  }
+
   function renderInList() {
     const ul = document.getElementById('in-list');
-    const title = document.getElementById('right-title');
+    const btn = document.getElementById('signout-all-btn');
     document.getElementById('counter').innerHTML = currentlyIn.length + '<span class="label">in holder</span>';
 
     if (!currentlyIn.length) {
-      title.textContent = 'Top Points';
-      ul.className = 'leaderboard';
-      showLeaderboard();
+      btn.style.display = 'none';
+      ul.innerHTML = '<li class="empty">No phones stored</li>';
       return;
     }
 
-    title.textContent = 'Phones Stored — Tap to Retrieve';
-    ul.className = 'in-list';
-    leaderboardCache = null;
+    btn.style.display = 'block';
 
-    ul.innerHTML = currentlyIn.map(s =>
-      '<li data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '">' +
+    ul.innerHTML = currentlyIn.map(s => {
+      const pts = projectedPoints(s.period, s.minutes);
+      const ptsDisplay = pts > 0 ? '+' + pts.toFixed(2) + ' pts' : (s.period === 'OFF' ? '0 pts' : '');
+      return '<li data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '">' +
         '<span class="name">' + escapeHtml(s.name) + '</span>' +
-        '<span class="time">' + s.minutes + ' min</span>' +
-      '</li>'
-    ).join('');
+        '<span class="time">' + s.minutes + 'm</span>' +
+        '<span class="pts-earning">' + ptsDisplay + '</span>' +
+      '</li>';
+    }).join('');
   }
 
-  function showLeaderboard() {
-    const ul = document.getElementById('in-list');
-    if (leaderboardCache && Date.now() - leaderboardTs < 60000) {
-      renderLeaderboard(leaderboardCache);
-      return;
-    }
-    ul.innerHTML = '<li class="empty">Loading…</li>';
+  function loadLeaderboard() {
     callBackend({ action: 'leaderboard' })
       .then(res => {
         leaderboardCache = res.leaderboard || [];
@@ -390,20 +512,21 @@
         renderLeaderboard(leaderboardCache);
       })
       .catch(() => {
-        ul.innerHTML = '<li class="empty">No data yet</li>';
+        document.getElementById('leaderboard-list').innerHTML = '<li class="empty">No data yet</li>';
       });
   }
 
   function renderLeaderboard(data) {
-    const ul = document.getElementById('in-list');
-    if (!data.length) {
+    const ul = document.getElementById('leaderboard-list');
+    if (!data || !data.length) {
       ul.innerHTML = '<li class="empty">No points yet</li>';
       return;
     }
     ul.innerHTML = data.map((s, i) =>
       '<li>' +
-        '<span><span class="rank">#' + (i + 1) + '</span> ' + escapeHtml(s.name) + '</span>' +
-        '<span class="pts">' + s.points.toFixed(2) + ' pts</span>' +
+        '<span class="rank">#' + (i + 1) + '</span>' +
+        '<span class="lb-name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="pts">' + s.points.toFixed(2) + '</span>' +
       '</li>'
     ).join('');
   }
@@ -445,6 +568,8 @@
           showToast('Phone stored, ' + res.name + '!\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'in');
         } else if (res.status === 'out') {
           showToast(res.name + ': +' + Number(res.points).toFixed(2) + ' pts\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'out');
+          // Refresh leaderboard since points just changed
+          loadLeaderboard();
         } else {
           showToast(res.message, 'error');
         }
@@ -474,6 +599,58 @@
     }
   }
 
+  function openSignOutAllModal() {
+    document.getElementById('pin-input').value = '';
+    document.getElementById('pin-modal').classList.add('show');
+    setTimeout(() => document.getElementById('pin-input').focus(), 100);
+  }
+
+  function closePinModal() {
+    document.getElementById('pin-modal').classList.remove('show');
+    document.getElementById('search').focus();
+  }
+
+  function confirmSignOutAll() {
+    const pin = document.getElementById('pin-input').value.trim();
+    if (!pin) return;
+
+    const btn = document.getElementById('pin-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Working…';
+
+    callBackend({ action: 'signoutall', pin: pin })
+      .then(res => {
+        btn.disabled = false;
+        btn.textContent = 'Confirm';
+        if (res.status === 'ok') {
+          closePinModal();
+          showToast(res.message, 'in');
+          currentlyIn = res.currentlyIn || [];
+          renderInList();
+          renderNameList();
+          loadLeaderboard();
+        } else {
+          showToast(res.message || 'Wrong PIN', 'error');
+          document.getElementById('pin-input').value = '';
+          document.getElementById('pin-input').focus();
+        }
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.textContent = 'Confirm';
+        showToast('Network error', 'error');
+        console.error(err);
+      });
+  }
+
+  document.getElementById('pin-confirm').addEventListener('click', confirmSignOutAll);
+  document.getElementById('pin-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmSignOutAll();
+  });
+  document.getElementById('pin-modal').addEventListener('click', e => {
+    if (e.target.id === 'pin-modal') closePinModal();
+  });
+
   document.getElementById('search').addEventListener('input', renderNameList);
   document.getElementById('search').addEventListener('keydown', e => {
     if (e.key === 'Enter') {
@@ -498,7 +675,10 @@
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape') {
+      closeModal();
+      closePinModal();
+    }
   });
 
   function refreshStatus() {
@@ -522,7 +702,9 @@
     });
 
   refreshStatus();
+  loadLeaderboard();
   setInterval(refreshStatus, 30000);
+  setInterval(loadLeaderboard, 120000); // Leaderboard every 2 min
 </script>
 </body>
 </html>
