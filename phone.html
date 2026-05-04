@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Phone Log</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    background: #0f1923;
+    color: #fff;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    padding: 16px 20px;
+    background: #162030;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 22px; font-weight: 700; }
+  header .right { display: flex; align-items: center; gap: 14px; }
+  header .day { color: #5bc8ac; font-size: 14px; }
+  header .home {
+    color: #5bc8ac;
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 14px;
+    border: 1px solid #5bc8ac;
+    border-radius: 6px;
+  }
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+  }
+  .panel {
+    background: #162030;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .panel h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    color: #5bc8ac;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+  }
+  .search-input {
+    width: 100%;
+    background: #0f1923;
+    border: 2px solid #2a3a50;
+    color: #fff;
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 18px;
+    outline: none;
+    margin-bottom: 12px;
+  }
+  .search-input:focus { border-color: #5bc8ac; }
+  .name-list, .in-list {
+    flex: 1;
+    overflow-y: auto;
+    list-style: none;
+    margin: 0 -4px;
+  }
+  .name-list li {
+    padding: 14px 16px;
+    background: #1e2e40;
+    border-radius: 8px;
+    margin: 4px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .name-list li:hover { background: #2a3a50; }
+  .name-list .empty { color: #334; text-align: center; padding: 20px; cursor: default; }
+  .name-list .empty:hover { background: #1e2e40; }
+
+  .in-list li {
+    padding: 12px 16px;
+    background: #1e3a3a;
+    border-radius: 8px;
+    margin: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .in-list li:hover { background: #2a4a4a; }
+  .in-list .name { font-weight: 600; font-size: 15px; }
+  .in-list .time { color: #5bc8ac; font-size: 13px; }
+  .in-list .empty { color: #334; text-align: center; padding: 20px; cursor: default; }
+  .in-list .empty:hover { background: transparent; }
+
+  .leaderboard li {
+    padding: 10px 14px;
+    background: #1e2e40;
+    border-radius: 6px;
+    margin: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+  }
+  .leaderboard .rank { color: #5bc8ac; font-weight: 700; min-width: 30px; }
+  .leaderboard .pts { color: #ffd166; font-weight: 600; }
+
+  .counter {
+    font-size: 36px;
+    font-weight: 700;
+    color: #5bc8ac;
+    text-align: center;
+    padding: 4px 0 12px;
+    line-height: 1;
+  }
+  .counter .label {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    color: #445;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  .period-info {
+    font-size: 12px;
+    color: #445;
+    text-align: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #1e2e40;
+    margin-bottom: 12px;
+  }
+
+  /* Modal */
+  .modal-bg {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: #162030;
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 90%;
+    width: 480px;
+    text-align: center;
+  }
+  .modal .who { font-size: 14px; color: #5bc8ac; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .modal .name { font-size: 32px; font-weight: 700; margin-bottom: 12px; }
+  .modal .action { font-size: 18px; color: #aaa; margin-bottom: 24px; }
+  .modal-buttons { display: flex; gap: 12px; }
+  .modal-buttons button {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-primary { background: #5bc8ac; color: #0f1923; }
+  .btn-primary.retrieve { background: #ffd166; color: #0f1923; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-cancel { background: #2a3a50; color: #fff; }
+  .btn-cancel:hover { background: #3a4a60; }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #162030;
+    color: #fff;
+    padding: 16px 28px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 200;
+    text-align: center;
+    white-space: pre-line;
+  }
+  #toast.show { opacity: 1; }
+  #toast.in { background: #1e3a3a; border-left: 4px solid #5bc8ac; }
+  #toast.out { background: #3a3320; border-left: 4px solid #ffd166; }
+  #toast.error { background: #3a1f1f; border-left: 4px solid #ff5a5a; }
+
+  .manual-link {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #445;
+    cursor: pointer;
+  }
+  .manual-link:hover { color: #667; }
+
+  #setup-warning {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: #ff5a5a;
+    color: white;
+    padding: 12px;
+    text-align: center;
+    font-weight: 600;
+    z-index: 300;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!--   Paste your Phone Log Apps Script /exec URL below            -->
+<!-- ============================================================ -->
+<script>
+  const BACKEND_URL = 'https://script.google.com/a/macros/rbhs208.net/s/AKfycbzpDz5bzd41VRE5D7Mwm7ioiLJhMmFEVX7cYgMD6ZZkzlYaNAa_q4dI0daBsSiUy84r7A/exec';
+</script>
+
+<header>
+  <h1>📱 Phone Log</h1>
+  <div class="right">
+    <span class="day" id="day-label"></span>
+    <a href="index.html" class="home">← Home</a>
+  </div>
+</header>
+
+<main>
+  <div class="panel">
+    <h2>Store Phone — Select Your Name</h2>
+    <input type="text" class="search-input" id="search" placeholder="Type to find your name…" autocomplete="off" autofocus />
+    <ul class="name-list" id="name-list">
+      <li class="empty">Loading roster…</li>
+    </ul>
+    <div class="manual-link" onclick="manualEntry()">Don't see your name? Enter ID manually</div>
+  </div>
+
+  <div class="panel">
+    <h2 id="right-title">Phones Stored — Tap to Retrieve</h2>
+    <div class="counter" id="counter">0<span class="label">in holder</span></div>
+    <div class="period-info" id="period-info"></div>
+    <ul class="in-list" id="in-list">
+      <li class="empty">No phones stored</li>
+    </ul>
+  </div>
+</main>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="who" id="modal-who">Store Phone</div>
+    <div class="name" id="modal-name"></div>
+    <div class="action" id="modal-action">Storing your phone now?</div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="modal-confirm">Store Phone</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const THURSDAY_MINUTES = 35;
+  const DEFAULT_MINUTES  = 45;
+
+  let roster = [];
+  let currentlyIn = [];
+  let leaderboardCache = null;
+  let leaderboardTs = 0;
+  let pendingAction = null;
+
+  if (BACKEND_URL.indexOf('PASTE_YOUR') === 0) {
+    const w = document.createElement('div');
+    w.id = 'setup-warning';
+    w.textContent = 'Setup needed: edit this file and paste your Phone Log Apps Script URL into BACKEND_URL';
+    document.body.appendChild(w);
+  }
+
+  // Day label + period info
+  (function() {
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const d = new Date();
+    const mins = d.getDay() === 4 ? THURSDAY_MINUTES : DEFAULT_MINUTES;
+    document.getElementById('day-label').textContent = days[d.getDay()];
+    document.getElementById('period-info').textContent = 'Full period = ' + mins + ' min = 1.00 pt';
+  })();
+
+  function callBackend(params) {
+    const url = BACKEND_URL + '?' + new URLSearchParams(params).toString();
+    return fetch(url, { method: 'GET', redirect: 'follow' })
+      .then(r => r.json());
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    setTimeout(() => { t.className = ''; }, 3500);
+  }
+
+  function renderNameList() {
+    const query = document.getElementById('search').value.trim().toLowerCase();
+    const ul = document.getElementById('name-list');
+
+    if (!roster.length) {
+      ul.innerHTML = '<li class="empty">Loading roster…</li>';
+      return;
+    }
+
+    const inIds = new Set(currentlyIn.map(s => s.id));
+    let list = roster.filter(s => !inIds.has(s.id));
+
+    if (query) {
+      list = list.filter(s => s.name.toLowerCase().includes(query));
+    }
+
+    if (!list.length) {
+      ul.innerHTML = '<li class="empty">' + (query ? 'No matches' : 'All phones stored') + '</li>';
+      return;
+    }
+
+    const truncated = list.length > 50;
+    list = list.slice(0, 50);
+
+    ul.innerHTML = list.map(s =>
+      '<li data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '">' +
+        escapeHtml(s.name) +
+      '</li>'
+    ).join('') + (truncated ? '<li class="empty">…keep typing to narrow results</li>' : '');
+  }
+
+  function renderInList() {
+    const ul = document.getElementById('in-list');
+    const title = document.getElementById('right-title');
+    document.getElementById('counter').innerHTML = currentlyIn.length + '<span class="label">in holder</span>';
+
+    if (!currentlyIn.length) {
+      title.textContent = 'Top Points';
+      ul.className = 'leaderboard';
+      showLeaderboard();
+      return;
+    }
+
+    title.textContent = 'Phones Stored — Tap to Retrieve';
+    ul.className = 'in-list';
+    leaderboardCache = null;
+
+    ul.innerHTML = currentlyIn.map(s =>
+      '<li data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '">' +
+        '<span class="name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="time">' + s.minutes + ' min</span>' +
+      '</li>'
+    ).join('');
+  }
+
+  function showLeaderboard() {
+    const ul = document.getElementById('in-list');
+    if (leaderboardCache && Date.now() - leaderboardTs < 60000) {
+      renderLeaderboard(leaderboardCache);
+      return;
+    }
+    ul.innerHTML = '<li class="empty">Loading…</li>';
+    callBackend({ action: 'leaderboard' })
+      .then(res => {
+        leaderboardCache = res.leaderboard || [];
+        leaderboardTs = Date.now();
+        renderLeaderboard(leaderboardCache);
+      })
+      .catch(() => {
+        ul.innerHTML = '<li class="empty">No data yet</li>';
+      });
+  }
+
+  function renderLeaderboard(data) {
+    const ul = document.getElementById('in-list');
+    if (!data.length) {
+      ul.innerHTML = '<li class="empty">No points yet</li>';
+      return;
+    }
+    ul.innerHTML = data.map((s, i) =>
+      '<li>' +
+        '<span><span class="rank">#' + (i + 1) + '</span> ' + escapeHtml(s.name) + '</span>' +
+        '<span class="pts">' + s.points.toFixed(2) + ' pts</span>' +
+      '</li>'
+    ).join('');
+  }
+
+  function showModal(type, id, name) {
+    pendingAction = { type, id, name };
+    const modal = document.getElementById('modal');
+    document.getElementById('modal-name').textContent = name;
+    const btn = document.getElementById('modal-confirm');
+    if (type === 'storephone') {
+      document.getElementById('modal-who').textContent = 'Store Phone';
+      document.getElementById('modal-action').textContent = 'Storing your phone now?';
+      btn.textContent = 'Store Phone';
+      btn.className = 'btn-primary';
+    } else {
+      document.getElementById('modal-who').textContent = 'Retrieve Phone';
+      document.getElementById('modal-action').textContent = 'Retrieving your phone?';
+      btn.textContent = 'Retrieve';
+      btn.className = 'btn-primary retrieve';
+    }
+    modal.classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('show');
+    pendingAction = null;
+    document.getElementById('search').focus();
+  }
+
+  function confirmAction() {
+    if (!pendingAction) return;
+    const { type } = pendingAction;
+    const id = pendingAction.id;
+    closeModal();
+
+    callBackend({ action: type, id: id })
+      .then(res => {
+        if (res.status === 'in') {
+          showToast('Phone stored, ' + res.name + '!\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'in');
+        } else if (res.status === 'out') {
+          showToast(res.name + ': +' + Number(res.points).toFixed(2) + ' pts\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'out');
+        } else {
+          showToast(res.message, 'error');
+        }
+        currentlyIn = res.currentlyIn || [];
+        renderInList();
+        document.getElementById('search').value = '';
+        renderNameList();
+      })
+      .catch(err => {
+        showToast('Network error — try again', 'error');
+        console.error(err);
+      });
+  }
+
+  function manualEntry() {
+    const id = prompt('Enter student ID:');
+    if (id && id.trim()) {
+      const trimmed = id.trim();
+      const match = roster.find(s => s.id === trimmed);
+      const name = match ? match.name : trimmed;
+      const stored = currentlyIn.find(s => s.id === trimmed);
+      if (stored) {
+        showModal('retrievephone', trimmed, stored.name);
+      } else {
+        showModal('storephone', trimmed, name);
+      }
+    }
+  }
+
+  document.getElementById('search').addEventListener('input', renderNameList);
+  document.getElementById('search').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const first = document.querySelector('#name-list li[data-id]');
+      if (first) first.click();
+    }
+  });
+
+  document.getElementById('name-list').addEventListener('click', e => {
+    const li = e.target.closest('li[data-id]');
+    if (li) showModal('storephone', li.dataset.id, li.dataset.name);
+  });
+
+  document.getElementById('in-list').addEventListener('click', e => {
+    const li = e.target.closest('li[data-id]');
+    if (li) showModal('retrievephone', li.dataset.id, li.dataset.name);
+  });
+
+  document.getElementById('modal-confirm').addEventListener('click', confirmAction);
+  document.getElementById('modal').addEventListener('click', e => {
+    if (e.target.id === 'modal') closeModal();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  function refreshStatus() {
+    callBackend({ action: 'status' })
+      .then(res => {
+        currentlyIn = res.currentlyIn || [];
+        renderInList();
+        renderNameList();
+      })
+      .catch(err => console.error('Status refresh failed:', err));
+  }
+
+  callBackend({ action: 'roster' })
+    .then(res => {
+      roster = res.roster || [];
+      renderNameList();
+    })
+    .catch(err => {
+      console.error('Roster load failed:', err);
+      document.getElementById('name-list').innerHTML = '<li class="empty">Failed to load roster</li>';
+    });
+
+  refreshStatus();
+  setInterval(refreshStatus, 30000);
+</script>
+</body>
+</html>

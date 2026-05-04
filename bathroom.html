@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bathroom Sign-Out</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    background: #1a1a1a;
+    color: #fff;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    padding: 16px 20px;
+    background: #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 22px; font-weight: 700; }
+  header .home {
+    color: #4a9eff;
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 14px;
+    border: 1px solid #4a9eff;
+    border-radius: 6px;
+  }
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+  }
+  .panel {
+    background: #2a2a2a;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .panel h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    color: #888;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+  }
+  .search-input {
+    width: 100%;
+    background: #1a1a1a;
+    border: 2px solid #444;
+    color: #fff;
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 18px;
+    outline: none;
+    margin-bottom: 12px;
+  }
+  .search-input:focus { border-color: #4a9eff; }
+  .name-list {
+    flex: 1;
+    overflow-y: auto;
+    list-style: none;
+    margin: 0 -4px;
+  }
+  .name-list li {
+    padding: 14px 16px;
+    background: #3a3a3a;
+    border-radius: 8px;
+    margin: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.1s;
+  }
+  .name-list li:hover { background: #4a4a4a; }
+  .name-list li:active { background: #4a9eff; }
+  .name-list .empty { color: #666; text-align: center; padding: 20px; cursor: default; }
+  .name-list .empty:hover { background: #3a3a3a; }
+
+  .out-list {
+    flex: 1;
+    overflow-y: auto;
+    list-style: none;
+    margin: 0 -4px;
+  }
+  .out-list li {
+    padding: 14px 16px;
+    background: #1e3a5f;
+    border-radius: 8px;
+    margin: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .out-list li:hover { background: #254a78; }
+  .out-list li.flagged { background: #5a2020; }
+  .out-list li.flagged:hover { background: #6b2828; }
+  .out-list .name { font-weight: 600; font-size: 16px; }
+  .out-list .time { color: #aaa; font-size: 13px; }
+  .out-list .empty { color: #666; text-align: center; padding: 20px; cursor: default; }
+  .out-list .empty:hover { background: transparent; }
+
+  .counter {
+    font-size: 36px;
+    font-weight: 700;
+    color: #4a9eff;
+    text-align: center;
+    padding: 4px 0 12px;
+    line-height: 1;
+  }
+  .counter .label {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+  .counter.full { color: #ff5a5a; }
+
+  /* Modal */
+  .modal-bg {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: #2a2a2a;
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 90%;
+    width: 480px;
+    text-align: center;
+  }
+  .modal .who { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .modal .name { font-size: 32px; font-weight: 700; margin-bottom: 12px; }
+  .modal .action { font-size: 18px; color: #aaa; margin-bottom: 24px; }
+  .modal-buttons { display: flex; gap: 12px; }
+  .modal-buttons button {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-primary { background: #4a9eff; color: #fff; }
+  .btn-primary.in { background: #3a9d4f; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-cancel { background: #3a3a3a; color: #fff; }
+  .btn-cancel:hover { background: #4a4a4a; }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2a2a2a;
+    color: #fff;
+    padding: 16px 28px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    z-index: 200;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.out { background: #1e3a5f; border-left: 4px solid #4a9eff; }
+  #toast.in { background: #1e4a2f; border-left: 4px solid #3a9d4f; }
+  #toast.error, #toast.blocked { background: #5a2020; border-left: 4px solid #ff5a5a; }
+
+  .manual-link {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+  }
+  .manual-link:hover { color: #888; }
+
+  #setup-warning {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: #ff5a5a;
+    color: white;
+    padding: 12px;
+    text-align: center;
+    font-weight: 600;
+    z-index: 300;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!--   Paste your Bathroom Apps Script /exec URL below             -->
+<!-- ============================================================ -->
+<script>
+  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyYhQr6pj9TDT7b3TxLyj0XRyI-loAQQ6-VrwGPjPuLXZkJeNjd7n1dMz05Lty7l7BQ/exec';
+</script>
+
+<header>
+  <h1>🚻 Bathroom Sign-Out</h1>
+  <a href="index.html" class="home">← Home</a>
+</header>
+
+<main>
+  <div class="panel">
+    <h2>Sign Out — Select Your Name</h2>
+    <input type="text" class="search-input" id="search" placeholder="Type to find your name…" autocomplete="off" autofocus />
+    <ul class="name-list" id="name-list">
+      <li class="empty">Loading roster…</li>
+    </ul>
+    <div class="manual-link" onclick="manualEntry()">Don't see your name? Enter ID manually</div>
+  </div>
+
+  <div class="panel">
+    <h2>Currently Out — Tap to Sign Back In</h2>
+    <div class="counter" id="counter">0 / 5<span class="label">students out</span></div>
+    <ul class="out-list" id="out-list">
+      <li class="empty">No one is out</li>
+    </ul>
+  </div>
+</main>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="who" id="modal-who">Sign out</div>
+    <div class="name" id="modal-name"></div>
+    <div class="action" id="modal-action">Are you signing out for the bathroom?</div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="modal-confirm">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let roster = [];
+  let currentlyOut = [];
+  let pendingAction = null; // { type: 'signout'|'signin', id, name }
+  const MAX_OUT = 5;
+
+  if (BACKEND_URL.indexOf('PASTE_YOUR') === 0) {
+    const w = document.createElement('div');
+    w.id = 'setup-warning';
+    w.textContent = 'Setup needed: edit this file and paste your Apps Script URL into BACKEND_URL';
+    document.body.appendChild(w);
+  }
+
+  function callBackend(params) {
+    const url = BACKEND_URL + '?' + new URLSearchParams(params).toString();
+    return fetch(url, { method: 'GET', redirect: 'follow' })
+      .then(r => r.json());
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    setTimeout(() => { t.className = ''; }, 3000);
+  }
+
+  function renderNameList() {
+    const query = document.getElementById('search').value.trim().toLowerCase();
+    const ul = document.getElementById('name-list');
+
+    if (!roster.length) {
+      ul.innerHTML = '<li class="empty">Loading roster…</li>';
+      return;
+    }
+
+    // Filter out students already signed out
+    const outIds = new Set(currentlyOut.map(s => s.id));
+    let list = roster.filter(s => !outIds.has(s.id));
+
+    if (query) {
+      list = list.filter(s => s.name.toLowerCase().includes(query));
+    }
+
+    if (!list.length) {
+      ul.innerHTML = '<li class="empty">' + (query ? 'No matches' : 'Everyone is out') + '</li>';
+      return;
+    }
+
+    // Limit to 50 results for performance
+    const truncated = list.length > 50;
+    list = list.slice(0, 50);
+
+    ul.innerHTML = list.map(s =>
+      '<li data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '">' +
+        escapeHtml(s.name) +
+      '</li>'
+    ).join('') + (truncated ? '<li class="empty">…keep typing to narrow results</li>' : '');
+  }
+
+  function renderOutList() {
+    const ul = document.getElementById('out-list');
+    const counter = document.getElementById('counter');
+    counter.innerHTML = currentlyOut.length + ' / ' + MAX_OUT + '<span class="label">students out</span>';
+    counter.className = 'counter' + (currentlyOut.length >= MAX_OUT ? ' full' : '');
+
+    if (!currentlyOut.length) {
+      ul.innerHTML = '<li class="empty">No one is out</li>';
+      return;
+    }
+
+    ul.innerHTML = currentlyOut.map(s =>
+      '<li class="' + (s.flagged ? 'flagged' : '') + '" data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '">' +
+        '<span class="name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="time">' + s.minutes + ' min</span>' +
+      '</li>'
+    ).join('');
+  }
+
+  function showModal(type, id, name) {
+    pendingAction = { type, id, name };
+    const modal = document.getElementById('modal');
+    document.getElementById('modal-name').textContent = name;
+    const btn = document.getElementById('modal-confirm');
+    if (type === 'signout') {
+      document.getElementById('modal-who').textContent = 'Sign Out';
+      document.getElementById('modal-action').textContent = 'Are you signing out for the bathroom?';
+      btn.textContent = 'Sign Out';
+      btn.className = 'btn-primary';
+    } else {
+      document.getElementById('modal-who').textContent = 'Sign Back In';
+      document.getElementById('modal-action').textContent = 'Are you back?';
+      btn.textContent = 'Sign In';
+      btn.className = 'btn-primary in';
+    }
+    modal.classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('show');
+    pendingAction = null;
+    document.getElementById('search').focus();
+  }
+
+  function confirmAction() {
+    if (!pendingAction) return;
+    const { type, id } = pendingAction;
+    closeModal();
+
+    callBackend({ action: type, id: id })
+      .then(res => {
+        showToast(res.message, res.status);
+        currentlyOut = res.currentlyOut || [];
+        renderOutList();
+        document.getElementById('search').value = '';
+        renderNameList();
+      })
+      .catch(err => {
+        showToast('Network error — try again', 'error');
+        console.error(err);
+      });
+  }
+
+  function manualEntry() {
+    const id = prompt('Enter student ID:');
+    if (id && id.trim()) {
+      // Treat as sign-out attempt; backend will reject if already out
+      const trimmed = id.trim();
+      // Try to find name in roster
+      const match = roster.find(s => s.id === trimmed);
+      const name = match ? match.name : trimmed;
+      // Check if currently out → sign in instead
+      const out = currentlyOut.find(s => s.id === trimmed);
+      if (out) {
+        showModal('signin', trimmed, out.name);
+      } else {
+        showModal('signout', trimmed, name);
+      }
+    }
+  }
+
+  // Event handlers
+  document.getElementById('search').addEventListener('input', renderNameList);
+  document.getElementById('search').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const first = document.querySelector('#name-list li[data-id]');
+      if (first) first.click();
+    }
+  });
+
+  document.getElementById('name-list').addEventListener('click', e => {
+    const li = e.target.closest('li[data-id]');
+    if (li) showModal('signout', li.dataset.id, li.dataset.name);
+  });
+
+  document.getElementById('out-list').addEventListener('click', e => {
+    const li = e.target.closest('li[data-id]');
+    if (li) showModal('signin', li.dataset.id, li.dataset.name);
+  });
+
+  document.getElementById('modal-confirm').addEventListener('click', confirmAction);
+  document.getElementById('modal').addEventListener('click', e => {
+    if (e.target.id === 'modal') closeModal();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // Auto-refresh every 30s
+  function refreshStatus() {
+    callBackend({ action: 'status' })
+      .then(res => {
+        currentlyOut = res.currentlyOut || [];
+        renderOutList();
+        renderNameList();
+      })
+      .catch(err => console.error('Status refresh failed:', err));
+  }
+
+  // Initial load
+  callBackend({ action: 'roster' })
+    .then(res => {
+      roster = res.roster || [];
+      renderNameList();
+    })
+    .catch(err => {
+      console.error('Roster load failed:', err);
+      document.getElementById('name-list').innerHTML = '<li class="empty">Failed to load roster</li>';
+    });
+
+  refreshStatus();
+  setInterval(refreshStatus, 30000);
+</script>
+</body>
+</html>
