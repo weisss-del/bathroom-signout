@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bathroom Sign-Out</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    background: #1a1a1a;
+    color: #fff;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    padding: 16px;
+    background: #2a2a2a;
+    text-align: center;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+  }
+  .scanner-box {
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  #reader { width: 100%; height: 100%; }
+  #reader video { object-fit: cover; width: 100% !important; height: 100% !important; }
+  .panel {
+    background: #2a2a2a;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+  }
+  #out-list { flex: 1; overflow-y: auto; list-style: none; }
+  #out-list li {
+    padding: 12px;
+    background: #3a3a3a;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #out-list li.flagged { background: #5a2020; }
+  #out-list .name { font-weight: 600; }
+  #out-list .time { color: #aaa; font-size: 14px; }
+  #out-list .empty { color: #666; text-align: center; padding: 20px; }
+  #message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    padding: 24px 40px;
+    border-radius: 12px;
+    font-size: 28px;
+    font-weight: 600;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 10;
+    max-width: 80%;
+  }
+  #message.show { opacity: 1; }
+  #message.out { background: rgba(40, 100, 180, 0.95); }
+  #message.in { background: rgba(40, 150, 70, 0.95); }
+  #message.blocked { background: rgba(180, 50, 50, 0.95); }
+  #message.error { background: rgba(120, 120, 120, 0.95); }
+  .hint {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #aaa;
+    font-size: 14px;
+    background: rgba(0,0,0,0.6);
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+  .counter {
+    font-size: 32px;
+    font-weight: 700;
+    color: #4a9eff;
+    text-align: center;
+    padding: 8px 0 16px;
+  }
+  .counter.full { color: #ff5a5a; }
+  #setup-warning {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: #ff5a5a;
+    color: white;
+    padding: 12px;
+    text-align: center;
+    font-weight: 600;
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!--   STEP 1: Paste your Apps Script Web App URL below            -->
+<!--   (the URL ending in /exec from Deploy → Manage deployments)  -->
+<!-- ============================================================ -->
+<script>
+  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyYhQr6pj9TDT7b3TxLyj0XRyI-loAQQ6-VrwGPjPuLXZkJeNjd7n1dMz05Lty7l7BQ/exec';
+</script>
+
+<header>Bathroom Sign-Out — Scan ID barcode</header>
+<main>
+  <div class="scanner-box">
+    <div id="reader"></div>
+    <div id="message"></div>
+    <div class="hint">Hold ID 6–10 inches from camera</div>
+  </div>
+  <div class="panel">
+    <h2>Currently Out</h2>
+    <div class="counter" id="counter">0 / 5</div>
+    <ul id="out-list"><li class="empty">No one is out</li></ul>
+  </div>
+</main>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+  const MAX_OUT = 5;
+  let lastScan = '';
+  let lastScanTime = 0;
+  let processing = false;
+
+  // Show warning if backend URL not configured
+  if (BACKEND_URL.indexOf('PASTE_YOUR') === 0) {
+    const w = document.createElement('div');
+    w.id = 'setup-warning';
+    w.textContent = 'Setup needed: edit this file and paste your Apps Script URL into BACKEND_URL';
+    document.body.appendChild(w);
+  }
+
+  function showMessage(text, type) {
+    const el = document.getElementById('message');
+    el.textContent = text;
+    el.className = 'show ' + type;
+    setTimeout(() => { el.className = ''; }, 2500);
+  }
+
+  function updateOutList(list) {
+    list = list || [];
+    const ul = document.getElementById('out-list');
+    const counter = document.getElementById('counter');
+    counter.textContent = list.length + ' / ' + MAX_OUT;
+    counter.className = 'counter' + (list.length >= MAX_OUT ? ' full' : '');
+    if (!list.length) {
+      ul.innerHTML = '<li class="empty">No one is out</li>';
+      return;
+    }
+    ul.innerHTML = list.map(s =>
+      '<li class="' + (s.flagged ? 'flagged' : '') + '">' +
+        '<span class="name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="time">' + s.minutes + ' min</span>' +
+      '</li>'
+    ).join('');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])
+    );
+  }
+
+  // Call the Apps Script backend. Uses GET with query params (avoids CORS preflight).
+  function callBackend(params) {
+    const url = BACKEND_URL + '?' + new URLSearchParams(params).toString();
+    return fetch(url, { method: 'GET', redirect: 'follow' })
+      .then(r => r.json());
+  }
+
+  function onScan(decodedText) {
+    const now = Date.now();
+    if (processing) return;
+    if (decodedText === lastScan && now - lastScanTime < 3000) return;
+    lastScan = decodedText;
+    lastScanTime = now;
+    processing = true;
+
+    callBackend({ action: 'scan', id: decodedText })
+      .then(res => {
+        processing = false;
+        showMessage(res.message, res.status);
+        updateOutList(res.currentlyOut);
+      })
+      .catch(err => {
+        processing = false;
+        showMessage('Network error — try again', 'error');
+        console.error(err);
+      });
+  }
+
+  function refreshStatus() {
+    callBackend({ action: 'status' })
+      .then(res => updateOutList(res.currentlyOut))
+      .catch(err => console.error('Status refresh failed:', err));
+  }
+
+  // Refresh "currently out" every 30s
+  setInterval(refreshStatus, 30000);
+  refreshStatus();
+
+  // Start scanner
+  const scanner = new Html5Qrcode("reader");
+  Html5Qrcode.getCameras().then(cameras => {
+    if (!cameras.length) {
+      showMessage('No camera found', 'error');
+      return;
+    }
+    scanner.start(
+      cameras[0].id,
+      {
+        fps: 10,
+        qrbox: { width: 300, height: 150 },
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ]
+      },
+      onScan,
+      () => {}
+    ).catch(err => showMessage('Camera error: ' + err, 'error'));
+  }).catch(err => showMessage('Camera permission denied', 'error'));
+</script>
+</body>
+</html>
