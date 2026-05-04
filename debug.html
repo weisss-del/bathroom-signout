@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Barcode Debug</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: sans-serif;
+    background: #1a1a1a;
+    color: #fff;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 12px;
+    background: #2a2a2a;
+    text-align: center;
+    font-size: 16px;
+  }
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 12px;
+    min-height: 0;
+  }
+  .scanner-box {
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+  }
+  #reader { width: 100%; height: 100%; }
+  #reader video { object-fit: cover; width: 100% !important; height: 100% !important; }
+  .crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 80px;
+    border: 3px solid #4ade80;
+    border-radius: 4px;
+    pointer-events: none;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.4);
+  }
+  .log-panel {
+    background: #2a2a2a;
+    border-radius: 8px;
+    padding: 12px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 13px;
+  }
+  .log-panel h3 { color: #4ade80; margin-bottom: 8px; }
+  .log-line {
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    background: #1a1a1a;
+    border-left: 3px solid #4ade80;
+    word-break: break-all;
+  }
+  .log-line .meta { color: #888; font-size: 11px; }
+  .log-line .data { color: #4ade80; font-weight: bold; font-size: 15px; }
+  .empty { color: #666; padding: 20px; text-align: center; }
+  .hint {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #fff;
+    font-size: 12px;
+    background: rgba(0,0,0,0.7);
+    padding: 4px 12px;
+    border-radius: 12px;
+  }
+</style>
+</head>
+<body>
+  <header>Barcode Debug — hold ID inside green box, slowly move closer/farther</header>
+  <main>
+    <div class="scanner-box">
+      <div id="reader"></div>
+      <div class="crosshair"></div>
+      <div class="hint">Try 4–8 inches, steady, good light</div>
+    </div>
+    <div class="log-panel">
+      <h3>Detected Barcodes</h3>
+      <div id="log"><div class="empty">Waiting for first scan…</div></div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script>
+    const logDiv = document.getElementById('log');
+    let scanCount = 0;
+
+    function addScan(text, format) {
+      if (scanCount === 0) logDiv.innerHTML = '';
+      scanCount++;
+      const div = document.createElement('div');
+      div.className = 'log-line';
+      div.innerHTML =
+        '<div class="meta">[' + new Date().toLocaleTimeString() + '] Format: ' + (format || 'unknown') + '</div>' +
+        '<div class="data">' + text.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</div>';
+      logDiv.insertBefore(div, logDiv.firstChild);
+    }
+
+    const scanner = new Html5Qrcode("reader");
+    Html5Qrcode.getCameras().then(cameras => {
+      if (!cameras.length) {
+        logDiv.innerHTML = '<div class="empty">No camera</div>';
+        return;
+      }
+      // Use back camera if available, otherwise first
+      const cam = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[0];
+      scanner.start(
+        cam.id,
+        {
+          fps: 15,
+          qrbox: { width: 400, height: 150 }
+          // No formatsToSupport = accept ALL formats
+        },
+        (text, result) => {
+          const fmt = result?.result?.format?.formatName || 'unknown';
+          addScan(text, fmt);
+        },
+        () => {} // ignore not-found errors
+      ).catch(err => {
+        logDiv.innerHTML = '<div class="empty">Camera error: ' + err + '</div>';
+      });
+    });
+  </script>
+</body>
+</html>
