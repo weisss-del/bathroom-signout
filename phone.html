@@ -280,7 +280,7 @@
 <!--   Paste your Phone Log Apps Script /exec URL below            -->
 <!-- ============================================================ -->
 <script>
-  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwlkpQ-QQWTamjCu-e6i0t0rXECi--vfldmeRrrj-0ejQLB0YiAvukUMD9VGlPfWxi38A/exec';
+  const BACKEND_URL = 'PASTE_YOUR_PHONE_LOG_APPS_SCRIPT_URL_HERE';
 </script>
 
 <header>
@@ -355,6 +355,25 @@
   let leaderboardCache = null;
   let leaderboardTs = 0;
   let pendingAction = null;
+
+  // Schedule (kept in sync with backend) — defined first because IIFE below uses it
+  const SCHEDULE = {
+    1: [
+      { name: 'P1',  s: 480,  e: 535 },
+      { name: 'P2',  s: 540,  e: 590 },
+      { name: 'P6/7',s: 710,  e: 765 },
+      { name: 'P9',  s: 800,  e: 850 },
+      { name: 'P10', s: 855,  e: 905 }
+    ],
+    4: [
+      { name: 'P1',  s: 535,  e: 575 },
+      { name: 'P2',  s: 580,  e: 620 },
+      { name: 'P6/7',s: 730,  e: 785 },
+      { name: 'P9',  s: 820,  e: 860 },
+      { name: 'P10', s: 865,  e: 905 }
+    ]
+  };
+  SCHEDULE[2] = SCHEDULE[1]; SCHEDULE[3] = SCHEDULE[1]; SCHEDULE[5] = SCHEDULE[1];
 
   if (BACKEND_URL.indexOf('PASTE_YOUR') === 0) {
     const w = document.createElement('div');
@@ -449,23 +468,6 @@
   }
 
   // Schedule (kept in sync with backend)
-  const SCHEDULE = {
-    1: [
-      { name: 'P1',  s: 480,  e: 535 },
-      { name: 'P2',  s: 540,  e: 590 },
-      { name: 'P6/7',s: 710,  e: 765 },
-      { name: 'P9',  s: 800,  e: 850 },
-      { name: 'P10', s: 855,  e: 905 }
-    ],
-    4: [
-      { name: 'P1',  s: 535,  e: 575 },
-      { name: 'P2',  s: 580,  e: 620 },
-      { name: 'P6/7',s: 730,  e: 785 },
-      { name: 'P9',  s: 820,  e: 860 },
-      { name: 'P10', s: 865,  e: 905 }
-    ]
-  };
-  SCHEDULE[2] = SCHEDULE[1]; SCHEDULE[3] = SCHEDULE[1]; SCHEDULE[5] = SCHEDULE[1];
 
   /** Calculate projected points right now if a kid was signed out */
   function projectedPoints(storedPeriodName, minutesStored) {
