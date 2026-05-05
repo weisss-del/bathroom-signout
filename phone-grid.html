@@ -561,7 +561,10 @@
           showToast('Phone stored, ' + res.name + '!\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'in');
         } else if (res.status === 'out') {
           playBeep('out');
-          showToast(res.name + ': +' + Number(res.points).toFixed(2) + ' pts\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'out');
+          const streakMsg = (res.streakBonus && res.streakBonus > 0)
+            ? '\n🔥 ' + res.streakDays + '-day streak! +' + res.streakBonus + ' bonus'
+            : '';
+          showToast(res.name + ': +' + Number(res.points).toFixed(2) + ' pts' + streakMsg + '\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'out');
         } else {
           playErrorBeep();
           showToast(res.message, 'error');

@@ -515,17 +515,17 @@
 
   // Schedule (kept in sync with backend)
 
-  /** Calculate projected points right now if a kid was signed out */
+  /** Projected points if signed out NOW. Uses period-length-minus-5 as full-credit threshold. */
   function projectedPoints(storedPeriodName, minutesStored) {
     if (!storedPeriodName || storedPeriodName === 'OFF') return 0;
-    // Find period by name in today's schedule
     const periods = SCHEDULE[new Date().getDay()];
     if (!periods) return 0;
     const p = periods.find(x => x.name === storedPeriodName);
     if (!p) return 0;
-    const periodLen = p.e - p.s;
-    const stored = Math.min(minutesStored, periodLen);
-    return Math.round((stored / periodLen) * 100) / 100;
+    const fullCredit = (p.e - p.s) - 5;
+    if (fullCredit <= 0) return 0;
+    const ratio = minutesStored / fullCredit;
+    return Math.round(Math.min(ratio, 1.20) * 100) / 100;
   }
 
   function renderInList() {
@@ -617,7 +617,10 @@
           showToast('Phone stored, ' + res.name + '!\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'in');
         } else if (res.status === 'out') {
           playBeep('out');
-          showToast(res.name + ': +' + Number(res.points).toFixed(2) + ' pts\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'out');
+          const streakMsg = (res.streakBonus && res.streakBonus > 0)
+            ? '\n🔥 ' + res.streakDays + '-day streak! +' + res.streakBonus + ' bonus'
+            : '';
+          showToast(res.name + ': +' + Number(res.points).toFixed(2) + ' pts' + streakMsg + '\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'out');
           // Refresh leaderboard since points just changed
           loadLeaderboard();
         } else {
