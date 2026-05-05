@@ -107,7 +107,34 @@
   .out-list li.flagged { background: #5a2020; }
   .out-list li.flagged:hover { background: #6b2828; }
   .out-list .name { font-weight: 600; font-size: 16px; }
-  .out-list .time { color: #aaa; font-size: 13px; }
+  .out-list .timer {
+    font-size: 18px;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    color: #4a9eff;
+    background: rgba(74, 158, 255, 0.15);
+    padding: 4px 12px;
+    border-radius: 8px;
+    min-width: 70px;
+    text-align: center;
+  }
+  .out-list .timer.warn {
+    color: #ffd166;
+    background: rgba(255, 209, 102, 0.15);
+  }
+  .out-list .timer.late {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.2);
+  }
+  .out-list .timer.urgent {
+    color: #fff;
+    background: #c0392b;
+    animation: urgent-pulse 1s ease-in-out infinite;
+  }
+  @keyframes urgent-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.7); }
+    50% { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0); }
+  }
   .out-list .empty { color: #666; text-align: center; padding: 20px; cursor: default; }
   .out-list .empty:hover { background: transparent; }
 
@@ -218,7 +245,7 @@
 <!--   Paste your Bathroom Apps Script /exec URL below             -->
 <!-- ============================================================ -->
 <script>
-  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyYhQr6pj9TDT7b3TxLyj0XRyI-loAQQ6-VrwGPjPuLXZkJeNjd7n1dMz05Lty7l7BQ/exec';
+  const BACKEND_URL = 'PASTE_YOUR_BATHROOM_APPS_SCRIPT_URL_HERE';
 </script>
 
 <header>
@@ -290,6 +317,49 @@
     setTimeout(() => { t.className = ''; }, 3000);
   }
 
+  // Audio beep for confirmation
+  let audioCtx = null;
+  function playBeep(type) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const freq1 = type === 'in' ? 660 : 880;
+      const freq2 = type === 'in' ? 880 : 1100;
+      [
+        { f: freq1, t: 0,    d: 0.12 },
+        { f: freq2, t: 0.10, d: 0.18 }
+      ].forEach(n => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = n.f;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0, audioCtx.currentTime + n.t);
+        gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + n.t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + n.t + n.d);
+        osc.start(audioCtx.currentTime + n.t);
+        osc.stop(audioCtx.currentTime + n.t + n.d);
+      });
+    } catch(e) {}
+  }
+  function playErrorBeep() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.value = 220;
+      osc.type = 'square';
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.25);
+    } catch(e) {}
+  }
+
   function renderNameList() {
     const query = document.getElementById('search').value.trim().toLowerCase();
     const ul = document.getElementById('name-list');
@@ -323,6 +393,34 @@
     ).join('') + (truncated ? '<li class="empty">…keep typing to narrow results</li>' : '');
   }
 
+  function formatStopwatch(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return m + ':' + (s < 10 ? '0' + s : s);
+  }
+
+  function timerClassFor(seconds) {
+    const min = seconds / 60;
+    if (min >= 15) return 'urgent';
+    if (min >= 10) return 'late';
+    if (min >= 7)  return 'warn';
+    return '';
+  }
+
+  function tickTimers() {
+    const now = Date.now();
+    document.querySelectorAll('.timer[data-out-ms]').forEach(el => {
+      const outMs = Number(el.dataset.outMs);
+      if (!outMs) return;
+      const seconds = Math.max(0, Math.floor((now - outMs) / 1000));
+      el.textContent = formatStopwatch(seconds);
+      const cls = timerClassFor(seconds);
+      el.className = 'timer' + (cls ? ' ' + cls : '');
+    });
+  }
+  // Tick every second — pure browser-side, no backend calls
+  setInterval(tickTimers, 1000);
+
   function renderOutList() {
     const ul = document.getElementById('out-list');
     const counter = document.getElementById('counter');
@@ -334,12 +432,16 @@
       return;
     }
 
-    ul.innerHTML = currentlyOut.map(s =>
-      '<li class="' + (s.flagged ? 'flagged' : '') + '" data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '">' +
+    const now = Date.now();
+    ul.innerHTML = currentlyOut.map(s => {
+      const outMs = s.timeOutMs || (now - s.minutes * 60000);
+      const seconds = Math.max(0, Math.floor((now - outMs) / 1000));
+      const cls = timerClassFor(seconds);
+      return '<li class="' + (s.flagged ? 'flagged' : '') + '" data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '">' +
         '<span class="name">' + escapeHtml(s.name) + '</span>' +
-        '<span class="time">' + s.minutes + ' min</span>' +
-      '</li>'
-    ).join('');
+        '<span class="timer' + (cls ? ' ' + cls : '') + '" data-out-ms="' + outMs + '">' + formatStopwatch(seconds) + '</span>' +
+      '</li>';
+    }).join('');
   }
 
   function showModal(type, id, name) {
@@ -374,6 +476,11 @@
 
     callBackend({ action: type, id: id })
       .then(res => {
+        if (res.status === 'in' || res.status === 'out') {
+          playBeep(res.status);
+        } else {
+          playErrorBeep();
+        }
         showToast(res.message, res.status);
         currentlyOut = res.currentlyOut || [];
         renderOutList();
@@ -381,6 +488,7 @@
         renderNameList();
       })
       .catch(err => {
+        playErrorBeep();
         showToast('Network error — try again', 'error');
         console.error(err);
       });
