@@ -570,13 +570,16 @@
       ul.innerHTML = '<li class="empty">No points yet</li>';
       return;
     }
-    ul.innerHTML = data.map((s, i) =>
-      '<li>' +
+    ul.innerHTML = data.map((s, i) => {
+      const streakBadge = (s.streak && s.streak >= 3)
+        ? ' <span style="color:#ff8c42;font-size:11px;">🔥' + s.streak + '</span>'
+        : '';
+      return '<li>' +
         '<span class="rank">#' + (i + 1) + '</span>' +
-        '<span class="lb-name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="lb-name">' + escapeHtml(s.name) + streakBadge + '</span>' +
         '<span class="pts">' + s.points.toFixed(2) + '</span>' +
-      '</li>'
-    ).join('');
+      '</li>';
+    }).join('');
   }
 
   function showModal(type, id, name) {
