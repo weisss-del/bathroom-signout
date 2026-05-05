@@ -71,10 +71,14 @@
   .right-column {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     min-height: 0;
   }
   .panel.half {
+    flex: 1.5;
+    min-height: 0;
+  }
+  .panel.third {
     flex: 1;
     min-height: 0;
   }
@@ -129,6 +133,27 @@
   .leaderboard .lb-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .leaderboard .pts { color: #ffd166; font-weight: 600; }
   .leaderboard .empty { color: #334; text-align: center; padding: 16px; }
+
+  .leaderboard .streak-num {
+    color: #ff8c42;
+    font-weight: 700;
+    font-size: 14px;
+    background: #2a1a10;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 4px;
+  }
+  .leaderboard .streak-flame {
+    color: #ff8c42;
+    font-size: 11px;
+    margin-left: 6px;
+  }
+
+  .in-list .streak-flame {
+    color: #ff8c42;
+    font-size: 12px;
+    margin-left: 4px;
+  }
 
   .counter {
     font-size: 28px;
@@ -314,9 +339,15 @@
         🔔 End of Period — Sign Out All
       </button>
     </div>
-    <div class="panel half">
+    <div class="panel third">
       <h2>🏆 Top Points</h2>
       <ul class="leaderboard" id="leaderboard-list">
+        <li class="empty">Loading…</li>
+      </ul>
+    </div>
+    <div class="panel third">
+      <h2>🔥 Top Streaks</h2>
+      <ul class="leaderboard" id="streaks-list">
         <li class="empty">Loading…</li>
       </ul>
     </div>
@@ -544,8 +575,9 @@
     ul.innerHTML = currentlyIn.map(s => {
       const pts = projectedPoints(s.period, s.minutes);
       const ptsDisplay = pts > 0 ? '+' + pts.toFixed(2) + ' pts' : (s.period === 'OFF' ? '0 pts' : '');
+      const streakFlame = (s.streak && s.streak >= 1) ? ' <span class="streak-flame">🔥' + s.streak + '</span>' : '';
       return '<li data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '">' +
-        '<span class="name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="name">' + escapeHtml(s.name) + streakFlame + '</span>' +
         '<span class="time">' + s.minutes + 'm</span>' +
         '<span class="pts-earning">' + ptsDisplay + '</span>' +
       '</li>';
@@ -571,8 +603,8 @@
       return;
     }
     ul.innerHTML = data.map((s, i) => {
-      const streakBadge = (s.streak && s.streak >= 3)
-        ? ' <span style="color:#ff8c42;font-size:11px;">🔥' + s.streak + '</span>'
+      const streakBadge = (s.streak && s.streak >= 1)
+        ? '<span class="streak-flame">🔥' + s.streak + '</span>'
         : '';
       return '<li>' +
         '<span class="rank">#' + (i + 1) + '</span>' +
@@ -580,6 +612,31 @@
         '<span class="pts">' + s.points.toFixed(2) + '</span>' +
       '</li>';
     }).join('');
+  }
+
+  function loadTopStreaks() {
+    callBackend({ action: 'topstreaks' })
+      .then(res => {
+        renderTopStreaks(res.topStreaks || []);
+      })
+      .catch(() => {
+        document.getElementById('streaks-list').innerHTML = '<li class="empty">No data yet</li>';
+      });
+  }
+
+  function renderTopStreaks(data) {
+    const ul = document.getElementById('streaks-list');
+    if (!data || !data.length) {
+      ul.innerHTML = '<li class="empty">No streaks yet</li>';
+      return;
+    }
+    ul.innerHTML = data.map((s, i) =>
+      '<li>' +
+        '<span class="rank">#' + (i + 1) + '</span>' +
+        '<span class="lb-name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="streak-num">🔥 ' + s.streak + '</span>' +
+      '</li>'
+    ).join('');
   }
 
   function showModal(type, id, name) {
@@ -624,8 +681,9 @@
             ? '\n🔥 ' + res.streakDays + '-day streak! +' + res.streakBonus + ' bonus'
             : '';
           showToast(res.name + ': +' + Number(res.points).toFixed(2) + ' pts' + streakMsg + '\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'out');
-          // Refresh leaderboard since points just changed
+          // Refresh leaderboard and streaks since points just changed
           loadLeaderboard();
+          loadTopStreaks();
         } else {
           playErrorBeep();
           showToast(res.message, 'error');
@@ -761,8 +819,10 @@
 
   refreshStatus();
   loadLeaderboard();
+  loadTopStreaks();
   setInterval(refreshStatus, 30000);
   setInterval(loadLeaderboard, 120000); // Leaderboard every 2 min
+  setInterval(loadTopStreaks, 120000);  // Streaks every 2 min
 </script>
 </body>
 </html>

@@ -144,6 +144,14 @@
     opacity: 0.85;
     margin-top: 6px;
   }
+  .cell .streak-tag {
+    font-size: 11px;
+    margin-top: 4px;
+    background: rgba(255, 140, 66, 0.25);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+  }
 
   .summary-bar {
     background: #162030;
@@ -491,10 +499,13 @@
       const fmt = formatCellName(s.name);
       const inEntry = stored ? currentlyIn.find(c => c.id === s.id) : null;
       const minsHtml = inEntry ? '<div class="mins">' + inEntry.minutes + ' min</div>' : '';
+      const streakHtml = (inEntry && inEntry.streak >= 1)
+        ? '<div class="streak-tag">🔥 ' + inEntry.streak + ' day' + (inEntry.streak === 1 ? '' : 's') + '</div>'
+        : '';
       return '<div class="cell ' + (stored ? 'stored' : '') + '" data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '" data-stored="' + stored + '">' +
         '<div class="first">' + escapeHtml(fmt.first) + '</div>' +
         '<div class="last">' + escapeHtml(fmt.last) + '</div>' +
-        minsHtml +
+        minsHtml + streakHtml +
       '</div>';
     }).join('') + '</div>';
 
