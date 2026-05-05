@@ -29,10 +29,13 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 24px;
-    max-width: 800px;
+    max-width: 1100px;
     width: 100%;
+  }
+  @media (max-width: 800px) {
+    .grid { grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 600px) {
     .grid { grid-template-columns: 1fr; }
@@ -64,6 +67,7 @@
   .card p { color: #8aa; font-size: 14px; }
   .bathroom { --accent: #4a9eff; }
   .phone    { --accent: #5bc8ac; }
+  .grid-view { --accent: #ffd166; }
 </style>
 </head>
 <body>
@@ -79,7 +83,12 @@
     <a href="phone.html" class="card phone">
       <div class="icon">📱</div>
       <h2>Phone Log</h2>
-      <p>Earn points for storing your phone</p>
+      <p>Search by name (full school)</p>
+    </a>
+    <a href="phone-grid.html" class="card grid-view">
+      <div class="icon">🔲</div>
+      <h2>Phone Log — Grid</h2>
+      <p>Tap your tile (by class period)</p>
     </a>
   </div>
 </body>

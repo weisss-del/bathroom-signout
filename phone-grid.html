@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Phone Log — Grid</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    background: #0f1923;
+    color: #fff;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    padding: 14px 20px;
+    background: #162030;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 { font-size: 22px; font-weight: 700; }
+  header .right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  header .day { color: #5bc8ac; font-size: 14px; }
+  header .home {
+    color: #5bc8ac;
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 14px;
+    border: 1px solid #5bc8ac;
+    border-radius: 6px;
+  }
+
+  .period-bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #0a121a;
+    overflow-x: auto;
+  }
+  .period-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 12px 8px;
+    background: #1e2e40;
+    color: #aaa;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .period-btn:hover { background: #2a3a50; color: #fff; }
+  .period-btn.active {
+    background: #5bc8ac;
+    color: #0f1923;
+    border-color: #5bc8ac;
+  }
+  .period-btn .label {
+    display: block;
+    font-size: 10px;
+    font-weight: 400;
+    color: #667;
+    margin-top: 2px;
+    text-transform: uppercase;
+  }
+  .period-btn.active .label { color: #0f1923; opacity: 0.7; }
+
+  main {
+    flex: 1;
+    padding: 14px;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #667;
+    font-size: 16px;
+  }
+  .empty-state .big {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    max-width: 100%;
+  }
+  @media (max-width: 800px) {
+    .grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .cell {
+    aspect-ratio: 1.4;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 8px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.15s;
+    background: #c0392b;
+    color: #fff;
+    text-align: center;
+    user-select: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .cell:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
+  .cell:active { transform: translateY(0); }
+  .cell.stored { background: #27ae60; }
+  .cell .first {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .cell .last {
+    font-size: 13px;
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .cell .mins {
+    font-size: 11px;
+    opacity: 0.85;
+    margin-top: 6px;
+  }
+
+  .summary-bar {
+    background: #162030;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #1e2e40;
+  }
+  .summary-bar .stats {
+    display: flex;
+    gap: 24px;
+    font-size: 14px;
+  }
+  .summary-bar .stats .stored { color: #27ae60; font-weight: 600; }
+  .summary-bar .stats .open { color: #e74c3c; font-weight: 600; }
+  .summary-bar .period-info {
+    color: #667;
+    font-size: 12px;
+  }
+  .summary-bar .signout-all-btn {
+    background: #d4621a;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .summary-bar .signout-all-btn:hover { background: #b85518; }
+  .summary-bar .signout-all-btn:disabled { display: none; }
+
+  /* Modal */
+  .modal-bg {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: #162030;
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 90%;
+    width: 480px;
+    text-align: center;
+  }
+  .modal .who { font-size: 14px; color: #5bc8ac; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .modal .name { font-size: 32px; font-weight: 700; margin-bottom: 12px; }
+  .modal .action { font-size: 18px; color: #aaa; margin-bottom: 24px; }
+  .modal-buttons { display: flex; gap: 12px; }
+  .modal-buttons button {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-primary { background: #27ae60; color: #fff; }
+  .btn-primary.retrieve { background: #ffd166; color: #0f1923; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-cancel { background: #2a3a50; color: #fff; }
+  .btn-cancel:hover { background: #3a4a60; }
+
+  .pin-input {
+    width: 100%;
+    background: #0f1923;
+    border: 2px solid #2a3a50;
+    color: #fff;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 28px;
+    letter-spacing: 8px;
+    text-align: center;
+    outline: none;
+    margin: 12px 0;
+    font-family: monospace;
+  }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #162030;
+    color: #fff;
+    padding: 16px 28px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 200;
+    text-align: center;
+    white-space: pre-line;
+  }
+  #toast.show { opacity: 1; }
+  #toast.in { background: #1e3a3a; border-left: 4px solid #27ae60; }
+  #toast.out { background: #3a3320; border-left: 4px solid #ffd166; }
+  #toast.error { background: #3a1f1f; border-left: 4px solid #e74c3c; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!--   Phone Log Apps Script /exec URL                             -->
+<!-- ============================================================ -->
+<script>
+  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwlkpQ-QQWTamjCu-e6i0t0rXECi--vfldmeRrrj-0ejQLB0YiAvukUMD9VGlPfWxi38A/exec';
+</script>
+
+<header>
+  <h1>📱 Phone Log — Grid</h1>
+  <div class="right">
+    <span class="day" id="day-label"></span>
+    <a href="phone.html" class="home">List View</a>
+    <a href="index.html" class="home">← Home</a>
+  </div>
+</header>
+
+<div class="period-bar" id="period-bar">
+  <button class="period-btn" data-period="P1">P1<span class="label">Honors</span></button>
+  <button class="period-btn" data-period="P2">P2<span class="label">Honors</span></button>
+  <button class="period-btn" data-period="P6/7">P6/7<span class="label">Physics</span></button>
+  <button class="period-btn" data-period="P9">P9<span class="label">Physics</span></button>
+  <button class="period-btn" data-period="P10">P10<span class="label">Honors</span></button>
+</div>
+
+<main id="main">
+  <div class="empty-state">
+    <div class="big">📱</div>
+    Select a class period above
+  </div>
+</main>
+
+<div class="summary-bar">
+  <div class="stats">
+    <span><span class="stored" id="stat-stored">0</span> stored</span>
+    <span><span class="open" id="stat-open">0</span> not stored</span>
+  </div>
+  <div class="period-info" id="period-info"></div>
+  <button class="signout-all-btn" id="signout-all-btn" onclick="openSignOutAllModal()" style="display:none;">
+    🔔 Sign Out All
+  </button>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="who" id="modal-who">Store Phone</div>
+    <div class="name" id="modal-name"></div>
+    <div class="action" id="modal-action">Storing your phone now?</div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="modal-confirm">Store Phone</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="pin-modal">
+  <div class="modal">
+    <div class="who">Teacher Only</div>
+    <div class="name" style="font-size:24px;">Sign Out All Phones</div>
+    <div class="action">Enter teacher PIN to confirm</div>
+    <input type="password" class="pin-input" id="pin-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" />
+    <div class="modal-buttons">
+      <button class="btn-cancel" onclick="closePinModal()">Cancel</button>
+      <button class="btn-primary retrieve" id="pin-confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let currentPeriod = null;
+  let roster = [];          // students in selected period
+  let currentlyIn = [];     // all phones stored (across all periods)
+  let pendingAction = null;
+
+  // Schedule for current-period detection
+  const SCHEDULE = {
+    1: [
+      { name: 'P1',  s: 480,  e: 535 },
+      { name: 'P2',  s: 540,  e: 590 },
+      { name: 'P6/7',s: 710,  e: 765 },
+      { name: 'P9',  s: 800,  e: 850 },
+      { name: 'P10', s: 855,  e: 905 }
+    ],
+    4: [
+      { name: 'P1',  s: 535,  e: 575 },
+      { name: 'P2',  s: 580,  e: 620 },
+      { name: 'P6/7',s: 730,  e: 785 },
+      { name: 'P9',  s: 820,  e: 860 },
+      { name: 'P10', s: 865,  e: 905 }
+    ]
+  };
+  SCHEDULE[2] = SCHEDULE[1]; SCHEDULE[3] = SCHEDULE[1]; SCHEDULE[5] = SCHEDULE[1];
+
+  // Day label
+  (function() {
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    document.getElementById('day-label').textContent = days[new Date().getDay()];
+    autoSelectCurrentPeriod();
+  })();
+
+  function autoSelectCurrentPeriod() {
+    const now = new Date();
+    const periods = SCHEDULE[now.getDay()];
+    if (!periods) return;
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const cur = periods.find(p => mins >= p.s && mins < p.e);
+    if (cur) selectPeriod(cur.name);
+  }
+
+  function callBackend(params) {
+    const url = BACKEND_URL + '?' + new URLSearchParams(params).toString();
+    return fetch(url, { method: 'GET', redirect: 'follow' })
+      .then(r => r.json());
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    setTimeout(() => { t.className = ''; }, 3000);
+  }
+
+  // Audio chime
+  let audioCtx = null;
+  function playBeep(type) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const freq1 = type === 'in' ? 660 : 880;
+      const freq2 = type === 'in' ? 880 : 1100;
+      [{ f: freq1, t: 0, d: 0.12 }, { f: freq2, t: 0.10, d: 0.18 }].forEach(n => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.value = n.f; osc.type = 'sine';
+        gain.gain.setValueAtTime(0, audioCtx.currentTime + n.t);
+        gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + n.t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + n.t + n.d);
+        osc.start(audioCtx.currentTime + n.t); osc.stop(audioCtx.currentTime + n.t + n.d);
+      });
+    } catch(e) {}
+  }
+  function playErrorBeep() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.frequency.value = 220; osc.type = 'square';
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+      osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.25);
+    } catch(e) {}
+  }
+
+  // Format name as "Sarah Joh"
+  function formatCellName(fullName) {
+    // Names are like "ABIGAIL G. SMOLAREK" or "SOPHIE SIMPSON"
+    const parts = String(fullName).trim().split(/\s+/);
+    if (parts.length === 0) return '';
+    const first = toTitleCase(parts[0]);
+    let last = '';
+    // Find the last name — skip middle initials like "G."
+    for (let i = parts.length - 1; i >= 1; i--) {
+      const candidate = parts[i].replace(/\./g, '');
+      if (candidate.length > 1) { // skip single-letter initials
+        last = toTitleCase(candidate).substring(0, 3);
+        break;
+      }
+    }
+    return { first, last };
+  }
+  function toTitleCase(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  }
+
+  function selectPeriod(periodName) {
+    currentPeriod = periodName;
+    document.querySelectorAll('.period-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.period === periodName);
+    });
+    document.getElementById('main').innerHTML = '<div class="empty-state"><div class="big">⏳</div>Loading roster…</div>';
+    loadRoster();
+  }
+
+  function loadRoster() {
+    if (!currentPeriod) return;
+    callBackend({ action: 'roster', period: currentPeriod })
+      .then(res => {
+        roster = res.roster || [];
+        renderGrid();
+      })
+      .catch(err => {
+        document.getElementById('main').innerHTML = '<div class="empty-state"><div class="big">⚠️</div>Failed to load roster</div>';
+        console.error(err);
+      });
+  }
+
+  function refreshStatus() {
+    callBackend({ action: 'status' })
+      .then(res => {
+        currentlyIn = res.currentlyIn || [];
+        renderGrid();
+      })
+      .catch(err => console.error('Status refresh failed:', err));
+  }
+
+  function renderGrid() {
+    if (!currentPeriod) return;
+    const main = document.getElementById('main');
+
+    if (!roster.length) {
+      main.innerHTML = '<div class="empty-state"><div class="big">📋</div>No students assigned to ' + currentPeriod + '.<br><br>Add a "Class" column (column C) to your Roster sheet and tag students with ' + currentPeriod + '.</div>';
+      updateStats();
+      return;
+    }
+
+    const inIds = new Set(currentlyIn.map(s => s.id));
+
+    main.innerHTML = '<div class="grid">' + roster.map(s => {
+      const stored = inIds.has(s.id);
+      const fmt = formatCellName(s.name);
+      const inEntry = stored ? currentlyIn.find(c => c.id === s.id) : null;
+      const minsHtml = inEntry ? '<div class="mins">' + inEntry.minutes + ' min</div>' : '';
+      return '<div class="cell ' + (stored ? 'stored' : '') + '" data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '" data-stored="' + stored + '">' +
+        '<div class="first">' + escapeHtml(fmt.first) + '</div>' +
+        '<div class="last">' + escapeHtml(fmt.last) + '</div>' +
+        minsHtml +
+      '</div>';
+    }).join('') + '</div>';
+
+    updateStats();
+  }
+
+  function updateStats() {
+    const inIds = new Set(currentlyIn.map(s => s.id));
+    const periodIds = new Set(roster.map(s => s.id));
+    let storedCount = 0;
+    inIds.forEach(id => { if (periodIds.has(id)) storedCount++; });
+    const openCount = roster.length - storedCount;
+
+    document.getElementById('stat-stored').textContent = storedCount;
+    document.getElementById('stat-open').textContent = openCount;
+    document.getElementById('signout-all-btn').style.display = currentlyIn.length > 0 ? 'block' : 'none';
+
+    // Period status info
+    const info = document.getElementById('period-info');
+    const now = new Date();
+    const periods = SCHEDULE[now.getDay()];
+    if (periods) {
+      const mins = now.getHours() * 60 + now.getMinutes();
+      const cur = periods.find(p => mins >= p.s && mins < p.e);
+      info.textContent = cur ? 'Now: ' + cur.name : 'Between periods';
+    } else {
+      info.textContent = '';
+    }
+  }
+
+  function showModal(type, id, name) {
+    pendingAction = { type, id, name };
+    const modal = document.getElementById('modal');
+    document.getElementById('modal-name').textContent = name;
+    const btn = document.getElementById('modal-confirm');
+    if (type === 'storephone') {
+      document.getElementById('modal-who').textContent = 'Store Phone';
+      document.getElementById('modal-action').textContent = 'Storing your phone now?';
+      btn.textContent = 'Store Phone';
+      btn.className = 'btn-primary';
+    } else {
+      document.getElementById('modal-who').textContent = 'Retrieve Phone';
+      document.getElementById('modal-action').textContent = 'Retrieving your phone?';
+      btn.textContent = 'Retrieve';
+      btn.className = 'btn-primary retrieve';
+    }
+    modal.classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('show');
+    pendingAction = null;
+  }
+
+  function confirmAction() {
+    if (!pendingAction) return;
+    const { type, id } = pendingAction;
+    closeModal();
+
+    callBackend({ action: type, id: id })
+      .then(res => {
+        if (res.status === 'in') {
+          playBeep('in');
+          showToast('Phone stored, ' + res.name + '!\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'in');
+        } else if (res.status === 'out') {
+          playBeep('out');
+          showToast(res.name + ': +' + Number(res.points).toFixed(2) + ' pts\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'out');
+        } else {
+          playErrorBeep();
+          showToast(res.message, 'error');
+        }
+        currentlyIn = res.currentlyIn || [];
+        renderGrid();
+      })
+      .catch(err => {
+        playErrorBeep();
+        showToast('Network error — try again', 'error');
+        console.error(err);
+      });
+  }
+
+  function openSignOutAllModal() {
+    document.getElementById('pin-input').value = '';
+    document.getElementById('pin-modal').classList.add('show');
+    setTimeout(() => document.getElementById('pin-input').focus(), 100);
+  }
+
+  function closePinModal() {
+    document.getElementById('pin-modal').classList.remove('show');
+  }
+
+  function confirmSignOutAll() {
+    const pin = document.getElementById('pin-input').value.trim();
+    if (!pin) return;
+
+    const btn = document.getElementById('pin-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Working…';
+
+    callBackend({ action: 'signoutall', pin: pin })
+      .then(res => {
+        btn.disabled = false;
+        btn.textContent = 'Confirm';
+        if (res.status === 'ok') {
+          closePinModal();
+          showToast(res.message, 'in');
+          currentlyIn = res.currentlyIn || [];
+          renderGrid();
+        } else {
+          showToast(res.message || 'Wrong PIN', 'error');
+          document.getElementById('pin-input').value = '';
+          document.getElementById('pin-input').focus();
+        }
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.textContent = 'Confirm';
+        showToast('Network error', 'error');
+      });
+  }
+
+  // Wire up event handlers
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => selectPeriod(btn.dataset.period));
+  });
+
+  document.getElementById('main').addEventListener('click', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    const id = cell.dataset.id;
+    const name = cell.dataset.name;
+    const stored = cell.dataset.stored === 'true';
+    showModal(stored ? 'retrievephone' : 'storephone', id, name);
+  });
+
+  document.getElementById('modal-confirm').addEventListener('click', confirmAction);
+  document.getElementById('modal').addEventListener('click', e => {
+    if (e.target.id === 'modal') closeModal();
+  });
+
+  document.getElementById('pin-confirm').addEventListener('click', confirmSignOutAll);
+  document.getElementById('pin-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmSignOutAll();
+  });
+  document.getElementById('pin-modal').addEventListener('click', e => {
+    if (e.target.id === 'pin-modal') closePinModal();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeModal();
+      closePinModal();
+    }
+  });
+
+  // Initial status load + refresh every 30s for live "min" counters
+  refreshStatus();
+  setInterval(() => { if (currentPeriod) refreshStatus(); }, 30000);
+</script>
+</body>
+</html>
