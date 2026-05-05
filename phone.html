@@ -436,6 +436,51 @@
     setTimeout(() => { t.className = ''; }, 3500);
   }
 
+  // Audio beep — pleasant chime for store/retrieve confirmation
+  let audioCtx = null;
+  function playBeep(type) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      // Two-note chime: higher for "in" (store), lower for "out" (retrieve)
+      const freq1 = type === 'out' ? 660 : 880;
+      const freq2 = type === 'out' ? 880 : 1100;
+      [
+        { f: freq1, t: 0,    d: 0.12 },
+        { f: freq2, t: 0.10, d: 0.18 }
+      ].forEach(n => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = n.f;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0, audioCtx.currentTime + n.t);
+        gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + n.t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + n.t + n.d);
+        osc.start(audioCtx.currentTime + n.t);
+        osc.stop(audioCtx.currentTime + n.t + n.d);
+      });
+    } catch(e) {}
+  }
+
+  function playErrorBeep() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.value = 220;
+      osc.type = 'square';
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.25);
+    } catch(e) {}
+  }
+
   function renderNameList() {
     const query = document.getElementById('search').value.trim().toLowerCase();
     const ul = document.getElementById('name-list');
@@ -567,12 +612,15 @@
     callBackend({ action: type, id: id })
       .then(res => {
         if (res.status === 'in') {
+          playBeep('in');
           showToast('Phone stored, ' + res.name + '!\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'in');
         } else if (res.status === 'out') {
+          playBeep('out');
           showToast(res.name + ': +' + Number(res.points).toFixed(2) + ' pts\nTotal: ' + Number(res.totalPoints).toFixed(2) + ' pts', 'out');
           // Refresh leaderboard since points just changed
           loadLeaderboard();
         } else {
+          playErrorBeep();
           showToast(res.message, 'error');
         }
         currentlyIn = res.currentlyIn || [];
@@ -581,6 +629,7 @@
         renderNameList();
       })
       .catch(err => {
+        playErrorBeep();
         showToast('Network error — try again', 'error');
         console.error(err);
       });
