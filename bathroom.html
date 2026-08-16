@@ -265,7 +265,7 @@
 
   <div class="panel">
     <h2>Currently Out — Tap to Sign Back In</h2>
-    <div class="counter" id="counter">0 / 5<span class="label">students out</span></div>
+    <div class="counter" id="counter">0 / 2<span class="label">students out</span></div>
     <ul class="out-list" id="out-list">
       <li class="empty">No one is out</li>
     </ul>
@@ -290,9 +290,9 @@
   let roster = [];
   let currentlyOut = [];
   let pendingAction = null; // { type: 'signout'|'signin', id, name }
-  const MAX_OUT = 5;
+  const MAX_OUT = 2;
 
-  if (BACKEND_URL.indexOf('https://script.google.com/macros/s/AKfycbyYhQr6pj9TDT7b3TxLyj0XRyI-loAQQ6-VrwGPjPuLXZkJeNjd7n1dMz05Lty7l7BQ/exec') === 0) {
+  if (BACKEND_URL.indexOf('PASTE_YOUR') === 0) {
     const w = document.createElement('div');
     w.id = 'setup-warning';
     w.textContent = 'Setup needed: edit this file and paste your Apps Script URL into BACKEND_URL';
@@ -369,7 +369,6 @@
       return;
     }
 
-    // Filter out students already signed out
     const outIds = new Set(currentlyOut.map(s => s.id));
     let list = roster.filter(s => !outIds.has(s.id));
 
@@ -382,7 +381,6 @@
       return;
     }
 
-    // Limit to 50 results for performance
     const truncated = list.length > 50;
     list = list.slice(0, 50);
 
@@ -418,7 +416,6 @@
       el.className = 'timer' + (cls ? ' ' + cls : '');
     });
   }
-  // Tick every second — pure browser-side, no backend calls
   setInterval(tickTimers, 1000);
 
   function renderOutList() {
@@ -497,12 +494,9 @@
   function manualEntry() {
     const id = prompt('Enter student ID:');
     if (id && id.trim()) {
-      // Treat as sign-out attempt; backend will reject if already out
       const trimmed = id.trim();
-      // Try to find name in roster
       const match = roster.find(s => s.id === trimmed);
       const name = match ? match.name : trimmed;
-      // Check if currently out → sign in instead
       const out = currentlyOut.find(s => s.id === trimmed);
       if (out) {
         showModal('signin', trimmed, out.name);
@@ -512,7 +506,6 @@
     }
   }
 
-  // Event handlers
   document.getElementById('search').addEventListener('input', renderNameList);
   document.getElementById('search').addEventListener('keydown', e => {
     if (e.key === 'Enter') {
@@ -540,7 +533,6 @@
     if (e.key === 'Escape') closeModal();
   });
 
-  // Auto-refresh every 30s
   function refreshStatus() {
     callBackend({ action: 'status' })
       .then(res => {
@@ -551,7 +543,6 @@
       .catch(err => console.error('Status refresh failed:', err));
   }
 
-  // Initial load
   callBackend({ action: 'roster' })
     .then(res => {
       roster = res.roster || [];
