@@ -245,7 +245,7 @@
 <!--   Paste your Bathroom Apps Script /exec URL below             -->
 <!-- ============================================================ -->
 <script>
-  const BACKEND_URL = 'PASTE_YOUR_BATHROOM_APPS_SCRIPT_URL_HERE';
+  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyYhQr6pj9TDT7b3TxLyj0XRyI-loAQQ6-VrwGPjPuLXZkJeNjd7n1dMz05Lty7l7BQ/exec';
 </script>
 
 <header>
@@ -292,7 +292,7 @@
   let pendingAction = null; // { type: 'signout'|'signin', id, name }
   const MAX_OUT = 5;
 
-  if (BACKEND_URL.indexOf('PASTE_YOUR') === 0) {
+  if (BACKEND_URL.indexOf('https://script.google.com/macros/s/AKfycbyYhQr6pj9TDT7b3TxLyj0XRyI-loAQQ6-VrwGPjPuLXZkJeNjd7n1dMz05Lty7l7BQ/exec') === 0) {
     const w = document.createElement('div');
     w.id = 'setup-warning';
     w.textContent = 'Setup needed: edit this file and paste your Apps Script URL into BACKEND_URL';
