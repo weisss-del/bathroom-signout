@@ -357,6 +357,14 @@
         <button class="btn-cancel" onclick="closeModal()">Cancel</button>
       </div>
     </div>
+    <div id="other-step" style="display:none;">
+      <div class="action">What's the reason?</div>
+      <input type="text" class="search-input" id="other-reason-input" placeholder="Type a short reason…" autocomplete="off" maxlength="40" />
+      <div class="modal-buttons">
+        <button class="btn-cancel" onclick="backToReasons()">Back</button>
+        <button class="btn-primary color-Other" id="other-confirm">Sign Out</button>
+      </div>
+    </div>
     <div id="signin-step" style="display:none;">
       <div class="action" id="modal-action">Are you back?</div>
       <div class="modal-buttons">
@@ -374,6 +382,7 @@
   let currentlyOut = [];
   let reasonConfig = {};
   let pendingSignIn = null;
+  let pendingOther = null; // { id, name } — waiting on custom reason text
 
   if (BACKEND_URL.indexOf('PASTE_YOUR') === 0) {
     const w = document.createElement('div');
@@ -510,7 +519,10 @@
 
     const breakdown = document.getElementById('reason-breakdown');
     const counts = {};
-    currentlyOut.forEach(s => { counts[s.reason] = (counts[s.reason] || 0) + 1; });
+    currentlyOut.forEach(s => {
+      const key = s.capacityKey || s.reason;
+      counts[key] = (counts[key] || 0) + 1;
+    });
     breakdown.innerHTML = Object.keys(reasonConfig).map(r => {
       const count = counts[r] || 0;
       const max = reasonConfig[r].max;
@@ -532,7 +544,7 @@
       return '<li class="' + (s.flagged ? 'flagged' : '') + '" data-id="' + escapeHtml(s.id) + '" data-name="' + escapeHtml(s.name) + '">' +
         '<span class="name-block">' +
           '<span class="name">' + escapeHtml(s.name) + '</span>' +
-          '<span class="reason-tag color-' + escapeHtml(s.reason) + '">' + escapeHtml(s.reason) + '</span>' +
+          '<span class="reason-tag color-' + escapeHtml(s.capacityKey || s.reason) + '">' + escapeHtml(s.reason) + '</span>' +
         '</span>' +
         '<span class="timer' + (cls ? ' ' + cls : '') + '" data-out-ms="' + outMs + '" data-flag-min="' + flagMin + '">' + formatStopwatch(seconds) + '</span>' +
       '</li>';
@@ -543,10 +555,14 @@
     document.getElementById('modal-who').textContent = 'Sign Out';
     document.getElementById('modal-name').textContent = name;
     document.getElementById('reason-step').style.display = 'block';
+    document.getElementById('other-step').style.display = 'none';
     document.getElementById('signin-step').style.display = 'none';
 
     const outCounts = {};
-    currentlyOut.forEach(s => { outCounts[s.reason] = (outCounts[s.reason] || 0) + 1; });
+    currentlyOut.forEach(s => {
+      const key = s.capacityKey || s.reason;
+      outCounts[key] = (outCounts[key] || 0) + 1;
+    });
 
     const grid = document.getElementById('reason-grid');
     grid.innerHTML = Object.keys(reasonConfig).map(r => {
@@ -554,14 +570,45 @@
       const max = reasonConfig[r].max;
       const disabled = count >= max;
       const safeName = name.replace(/'/g, "\\'");
+      const clickHandler = disabled ? '' :
+        (r === 'Other'
+          ? 'onclick="showOtherStep(\'' + id + '\',\'' + safeName + '\')"'
+          : 'onclick="doSignOut(\'' + id + '\',\'' + safeName + '\',\'' + r + '\')"');
       return '<button class="reason-btn color-' + r + (disabled ? ' disabled' : '') + '" ' +
-        (disabled ? 'disabled' : 'onclick="doSignOut(\'' + id + '\',\'' + safeName + '\',\'' + r + '\')"') + '>' +
+        (disabled ? 'disabled' : clickHandler) + '>' +
         r + (disabled ? '<span class="sub">Full</span>' : '') +
       '</button>';
     }).join('');
 
     document.getElementById('modal').classList.add('show');
   }
+
+  function showOtherStep(id, name) {
+    pendingOther = { id, name };
+    document.getElementById('reason-step').style.display = 'none';
+    document.getElementById('other-step').style.display = 'block';
+    document.getElementById('other-reason-input').value = '';
+    setTimeout(() => document.getElementById('other-reason-input').focus(), 100);
+  }
+
+  function backToReasons() {
+    pendingOther = null;
+    document.getElementById('other-step').style.display = 'none';
+    document.getElementById('reason-step').style.display = 'block';
+  }
+
+  function confirmOther() {
+    if (!pendingOther) return;
+    const customText = document.getElementById('other-reason-input').value.trim();
+    const reasonLabel = customText ? ('Other: ' + customText) : 'Other';
+    const { id, name } = pendingOther;
+    doSignOut(id, name, reasonLabel);
+  }
+
+  document.getElementById('other-confirm').addEventListener('click', confirmOther);
+  document.getElementById('other-reason-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmOther();
+  });
 
   function showSignInModal(id, name) {
     pendingSignIn = { id, name };
@@ -575,13 +622,16 @@
 
   function closeModal() {
     document.getElementById('modal').classList.remove('show');
+    document.getElementById('other-step').style.display = 'none';
+    document.getElementById('reason-step').style.display = 'block';
     pendingSignIn = null;
+    pendingOther = null;
     document.getElementById('search').focus();
   }
 
-  function doSignOut(id, name, reason) {
+  function doSignOut(id, name, reasonLabel) {
     closeModal();
-    callBackend({ action: 'signout', id: id, reason: reason })
+    callBackend({ action: 'signout', id: id, reason: reasonLabel })
       .then(res => {
         if (res.status === 'out') playBeep('out'); else playErrorBeep();
         showToast(res.message, res.status);
